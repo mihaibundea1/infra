@@ -1,0 +1,31 @@
+services:
+  maria-db:
+    image: mariadb
+    volumes:
+      - ./data:/var/lib/mysql
+      - ./initscripts:/docker-entrypoint-initdb.d
+    container_name: maria-db
+    restart: unless-stopped
+    tty: true
+    ports:
+      - 3308:3306
+    environment:
+      MARIADB_ROOT_PASSWORD: pass1234
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh", "--connect"]
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      dmsdb:
+        ipv4_address: 10.10.0.2
+
+networks:
+  dmsdb:
+    driver: bridge
+    ipam: 
+      config:
+        - subnet: 10.10.0.0/16
+          gateway: 10.10.0.1
+
