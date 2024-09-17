@@ -18,11 +18,11 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      dmsdb:
+      provedb:
         ipv4_address: 10.10.0.2
 
 networks:
-  dmsdb:
+  provedb:
     driver: bridge
     ipam: 
       config:
