@@ -20,30 +20,21 @@ CREATE TABLE IF NOT EXISTS exercises (
     FOREIGN KEY (group_id) REFERENCES exercise_groups(id)
 );
 
--- Insert all muscle groups into the exercise_groups table
-INSERT INTO exercise_groups (name, image_url) VALUES
-    ('Abductors', 'https://example.com/images/abductors.jpg'),
-    ('Abs', 'https://example.com/images/abs.jpg'),
-    ('Adductors', 'https://example.com/images/adductors.jpg'),
-    ('Biceps', 'https://example.com/images/biceps.jpg'),
-    ('Calves', 'https://example.com/images/calves.jpg'),
-    ('Chest', 'https://example.com/images/chest.jpg'),
-    ('Forearms', 'https://example.com/images/forearms.jpg'),
-    ('Glutes', 'https://example.com/images/glutes.jpg'),
-    ('Hamstrings', 'https://example.com/images/hamstrings.jpg'),
-    ('Hip Flexors', 'https://example.com/images/hipflexors.jpg'),
-    ('IT Band', 'https://example.com/images/itband.jpg'),
-    ('Lats', 'https://example.com/images/lats.jpg'),
-    ('Lower Back', 'https://example.com/images/lowerback.jpg'),
-    ('Upper Back', 'https://example.com/images/upperback.jpg'),
-    ('Neck', 'https://example.com/images/neck.jpg'),
-    ('Obliques', 'https://example.com/images/obliques.jpg'),
-    ('Palmar Fascia', 'https://example.com/images/palmarfascia.jpg'),
-    ('Plantar Fascia', 'https://example.com/images/plantarfascia.jpg'),
-    ('Quads', 'https://example.com/images/quads.jpg'),
-    ('Shoulders', 'https://example.com/images/shoulders.jpg'),
-    ('Traps', 'https://example.com/images/traps.jpg'),
-    ('Triceps', 'https://example.com/images/triceps.jpg');
+-- Insert all muscle groups into the exercise_groups table with updated S3 URLs and manual IDs
+INSERT INTO exercise_groups (id, name, image_url) VALUES
+    (1, 'Forearm', 's3://proveit-exercises-directories/muscle_groups/forearm.png'),
+    (2, 'Abs', 's3://proveit-exercises-directories/muscle_groups/abs.png'),
+    (3, 'Lateral Abs', 's3://proveit-exercises-directories/muscle_groups/lateralabs.png'),
+    (4, 'Hamstrings', 's3://proveit-exercises-directories/muscle_groups/hamstrings.png'),
+    (5, 'Biceps', 's3://proveit-exercises-directories/muscle_groups/biceps.png'),
+    (6, 'Buttocks', 's3://proveit-exercises-directories/muscle_groups/buttocks.png'),
+    (7, 'Calves', 's3://proveit-exercises-directories/muscle_groups/calves.png'),
+    (8, 'Neck', 's3://proveit-exercises-directories/muscle_groups/neck.png'),
+    (9, 'Pecs', 's3://proveit-exercises-directories/muscle_groups/pecs.png'),
+    (10, 'Quadriceps', 's3://proveit-exercises-directories/muscle_groups/quad.png'),
+    (11, 'Shoulders', 's3://proveit-exercises-directories/muscle_groups/shoulders.png'),
+    (12, 'Triceps', 's3://proveit-exercises-directories/muscle_groups/triceps.png');
+
 
 -- Insert exercises with group_id
 INSERT INTO exercises (name, group_id, video_url, image_url, access_count) VALUES
