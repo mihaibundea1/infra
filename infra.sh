@@ -1,14 +1,8 @@
 #!/bin/bash
 
-# Path to the build configuration file
-CONFIG_FILE="build_config.txt"
-# Log file path
-LOG_FILE="linfra.log"
-
-# Set the repositories and local directories
-REPOS=(
-
-)
+# Path to needed files for the script
+CONFIG_FILE="build_config.json"
+LOG_FILE="landbase_infra.log"
 CLONE_DIR="local_sources"
 BUILD_DIR="built_services"
 
@@ -23,42 +17,80 @@ clone_repositories() {
     log "Starting to clone repositories..."
     mkdir -p $CLONE_DIR
     mkdir -p $BUILD_DIR
+
+    # Parse the config file and loop over each service
+    services=$(jq -c '.services[]' "$CONFIG_FILE")
         
-    for REPO in "${REPOS[@]}"; do
-        REPO_NAME=$(basename $REPO .git)
-        BRANCH_NAME=$(grep -w "$REPO_NAME" "$CONFIG_FILE" | cut -d '=' -f2 | xargs)
+    for service in $services; do
+        # Extract service details
+        service_name=$(echo "$service" | jq -r '.name')
+        repo_name=$(echo "$service" | jq -r '.repo_name')
+        branch=$(echo "$service" | jq -r '.branch')
+        availability=$(echo "$service" | jq -r '.availability')
 
-        if [ -z "$BRANCH_NAME" ]; then
-            log "Branch name for '$REPO_NAME' not found in $CONFIG_FILE. Skipping clone."
-            continue
-        fi
-
-        if [ -d "$CLONE_DIR/$REPO_NAME" ]; then
-            log "Repository '$REPO_NAME' already exists in '$CLONE_DIR'. Skipping clone."
-        else
-            git clone -b "$BRANCH_NAME" $REPO $CLONE_DIR/$REPO_NAME >> "$LOG_FILE" 2>&1
-            if [ $? -eq 0 ]; then
-                log "Successfully cloned '$REPO_NAME' with branch '$BRANCH_NAME' into '$CLONE_DIR'."
+      if [ "$availability" = true ]; then
+            if [ -d "$CLONE_DIR/$service_name" ]; then
+                log "Repository '$repo_name' for service '$service_name' already exists in '$CLONE_DIR'. Skipping clone."
             else
-                log "Failed to clone '$REPO_NAME' with branch '$BRANCH_NAME'."
-                
+                git clone -b "$branch" $repo_name "$CLONE_DIR/$service_name" >> "$LOG_FILE" 2>&1
+                if [ $? -eq 0 ]; then
+                    log "Successfully cloned '$repo_name' with branch '$branch' into '$CLONE_DIR/$service_name'."
+                else
+                    log "Failed to clone '$repo_name' with branch '$branch'."
+                fi
             fi
+        else
+            log "Service '$service_name' is marked as unavailable. Skipping clone."
         fi
     done
     
     log "Finished cloning repositories."
 }
 
-# Function to run Docker Compose using a specific compose file
+# Function to run docker-compose for enabled services
 run_docker_compose_build() {
     local compose_file=$1
     log "Starting Docker Compose build process using $compose_file..."
-    docker compose -f $compose_file up --build -d | tee -a "$LOG_FILE"
-    if [ $? -eq 0 ]; then
-        log "Docker Compose build process initiated successfully."
-        docker compose -f docker-compose.build.yaml logs -f >> "$LOG_FILE" 2>&1 &
+
+    # Start building the list of enabled services
+    AVAILABLE_SERVICES=""
+    
+    # Check if the compose file is docker-compose.deploy.yaml, then add maria-db service
+    if [[ "$compose_file" == "docker-compose.deploy.yaml" ]]; then
+        log "Adding maria-db service to available services."
+        AVAILABLE_SERVICES+="maria-db "
+    fi
+
+    # Parse the config file and loop over each service
+    services=$(jq -c '.services[]' "$CONFIG_FILE")
+
+    for service in $services; do
+        # Extract service details
+        service_name=$(echo "$service" | jq -r '.name')
+        availability=$(echo "$service" | jq -r '.availability')
+
+        # Only include the service if availability is true
+        if [ "$availability" = true ]; then
+            log "Service '$service_name' is enabled, added for build."
+            AVAILABLE_SERVICES+="${service_name} "
+        else
+            log "Service '$service_name' is not enabled, skipping."
+        fi
+    done
+
+    # If there are any enabled services, run docker-compose up
+    if [ -n "$AVAILABLE_SERVICES" ]; then
+        log "Building enabled services: $AVAILABLE_SERVICES"
+        docker compose -f "$compose_file" up -d $AVAILABLE_SERVICES >> "$LOG_FILE" | tee -a "$LOG_FILE"
+        
+        if [ $? -eq 0 ]; then
+            log "Build started successfully, following logs..."
+            docker compose -f "$compose_file" logs -f $AVAILABLE_SERVICES >> "$LOG_FILE" 2>&1 &
+        else
+            log "Failed to build services."
+        fi
     else
-        log "Docker Compose build process failed to start."
+        log "No services enabled to start."
     fi
 }
 
@@ -84,19 +116,27 @@ wait_for_containers() {
 # Function to check for non-empty build directories and clean up cloned repositories
 check_and_cleanup_source() {
     log "Checking for non-empty build directories and cleaning up..."
-    for REPO in "${REPOS[@]}"; do
-        REPO_NAME=$(basename $REPO .git)
-        ARTIFACT_PATH="$BUILD_DIR/$REPO_NAME"
-        if [ "$(ls -A $ARTIFACT_PATH)" ]; then
-            log "Build directory '$ARTIFACT_PATH' is not empty."
-            rm -rf $CLONE_DIR/$REPO_NAME
-            if [ $? -eq 0 ]; then
-                log "Removed cloned repository '$CLONE_DIR/$REPO_NAME'."
+    # Parse the config file and loop over each service
+    services=$(jq -c '.services[]' "$CONFIG_FILE")
+
+    for service in $services; do
+        # Extract service name and availability from the JSON file
+        service_name=$(echo "$service" | jq -r '.name')
+        availability=$(echo "$service" | jq -r '.availability')
+
+        ARTIFACT_PATH="$BUILD_DIR/$service_name"
+
+        # Only check and remove files if the service is enabled
+        if [ "$availability" = true ]; then
+            if [ -d "$ARTIFACT_PATH" ] && [ "$(ls -A $ARTIFACT_PATH)" ]; then
+                log "Build directory '$ARTIFACT_PATH' is not empty. Removing..."
+                rm -rf "$CLONE_DIR/$service_name"
+                log "Successfully removed '$CLONE_DIR/$service_name'."
             else
-                log "Failed to remove cloned repository '$CLONE_DIR/$REPO_NAME'."
+                log "Build directory '$ARTIFACT_PATH' is empty or does not exist."
             fi
         else
-            log "Build directory '$ARTIFACT_PATH' is empty. No cleanup performed."
+            log "Service '$service_name' is disabled, skipping cleanup."
         fi
     done
     log "Finished checking and cleanup."
@@ -106,8 +146,6 @@ check_and_cleanup_source() {
         log "$CLONE_DIR is empty, removing it."
         rmdir $CLONE_DIR
     fi
-
-    
 }
 
 # Function to check if there is any file in each service directory
@@ -140,100 +178,104 @@ check_files_artefact() {
     fi
 }
 
-# Function to install Docker on Ubuntu/Debian
-install_docker_ubuntu() {
-	# Add Docker's official GPG key:
-	sudo apt-get update
-	sudo apt-get install ca-certificates curl
-	sudo install -m 0755 -d /etc/apt/keyrings
-	sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-	sudo chmod a+r /etc/apt/keyrings/docker.asc
-	
-	# Add the repository to Apt sources:
-	echo \
-	"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-	$(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-	sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-	sudo apt-get update
-}
-
-# Function to install Docker on Fedora/Red Hat
-install_docker_fedora() {
-    log "Installing Docker Engine Community Edition on Fedora/Red Hat..."
-
-    # Update the package index
-    sudo dnf -y update
-
-    # Install required packages
-    sudo dnf -y install dnf-plugins-core
-
-    # Set up the stable repository
-    sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
-
-    # Install the latest version of Docker Engine Community Edition
-    sudo dnf -y install docker-ce docker-ce-cli containerd.io
-
-    log "Docker Engine Community Edition has been installed successfully on Fedora/Red Hat."
-}
-
-# Function to check and install Docker if necessary
-check_and_install_docker() {
-    if ! command -v docker &> /dev/null; then
-        log "Docker is not installed."
-
-        # Detect the OS and install Docker accordingly
-        if [ -f /etc/debian_version]; then
-            install_docker_ubuntu
-        elif [ -f /etc/debian-release ]; then
-            install_docker_fedora
-        else
-            log "Unsupported Linux distribution."
-            exit 1
-        fi
-        
-        # Add the current user to the docker group
-        sudo usermod -aG docker $USER
-        sudo chown -R $USER /var/run/docker.sock
-        
-        # Start Docker
-        sudo systemctl start docker
-
-        # Enable Docker to start on boot
-        sudo systemctl enable docker
-
-        # Verify that Docker is installed correctly by running the hello-world image
-        sudo docker run hello-world | tee -a "$LOG_FILE"
-    else
-        log "Docker is already installed."
-    fi
-}
-
 # Function to check Docker Compose version
 check_docker_compose_version() {
+    # Check if Docker is installed
+    if ! command -v docker &> /dev/null; then
+        log "Error: Docker is not installed."
+        log "Please install Docker Engine before running this script."
+        exit 1
+    fi
+
+    # Check if the integrated Docker Compose is available
+    if ! docker compose version &> /dev/null; then
+        log "Error: Docker Compose v2+ (integrated with Docker) is not installed."
+        log "Please upgrade to Docker Engine v2+ which includes Docker Compose as part of the Docker CLI."
+        exit 1
+    fi
+
     # Get Docker Compose version
-    compose_version=$(docker compose version --short 2>/dev/null || docker-compose --version 2>/dev/null)
+    compose_version=$(docker compose version --short | cut -d'.' -f1)
 
-    if [[ -z "$compose_version" ]]; then
-        log "Docker Compose is not installed or not found in PATH."
+    # Ensure Docker Compose is v2+
+    if [ "$compose_version" -lt 2 ]; then
+        log "Error: Docker Compose version must be v2+."
+        log "You are running Docker Compose version $(docker compose version --short)."
         exit 1
     fi
 
-    # Extract the numeric version from the output (works for both 'docker-compose' and 'docker compose')
-    if [[ $compose_version == *docker-compose* ]]; then
-        compose_version=$(docker-compose --version | awk '{print $3}')
-    else
-        compose_version=$(docker compose version --short)
-    fi
+    log "Docker Compose version is $compose_version. Proceeding..."
+}
 
-    # Split the version number into major, minor, and patch
-    major_version=$(echo "$compose_version" | cut -d. -f1)
+# Function to generate the docker-compose.build.yaml file dynamically
+generate_dc_build() {
+    DOCKER_COMPOSE_FILE="docker-compose.build.yaml"
+    [ -f "$DOCKER_COMPOSE_FILE" ] && rm "$DOCKER_COMPOSE_FILE" && log "Removing old build file: $DOCKER_COMPOSE_FILE."
+    echo "services:" >> $DOCKER_COMPOSE_FILE
+    services=$(jq -c '.services[]' "$CONFIG_FILE")
 
-    # Check if the major version is less than 2
-    if [[ "$major_version" -lt 2 ]]; then
-        log "Docker Compose version is below 2.0.0. Please update Docker Compose."
+    for service in $services; do
+        service_name=$(echo "$service" | jq -r '.name')
+        state=$(echo "$service" | jq -r '.state')
+        availability=$(echo "$service" | jq -r '.availability')
+        build_file=$(echo "$service" | jq -r '.build_file')
+        binary_file=$(echo "$service" | jq -r '.binary_file')
+
+        if [ "$availability" = true ]; then
+            echo "  ${service_name}:" >> $DOCKER_COMPOSE_FILE
+            echo "    image: fedora:40" >> $DOCKER_COMPOSE_FILE
+            echo "    volumes:" >> $DOCKER_COMPOSE_FILE
+            echo "      - ./local_sources/${service_name}:/app" >> $DOCKER_COMPOSE_FILE
+            echo "      - ./built_services/${service_name}:/app/${service_name}_output/artefact" >> $DOCKER_COMPOSE_FILE
+            #    # Add resource limits for CPU and memory
+            # echo "    deploy:" >> $DOCKER_COMPOSE_FILE
+            # echo "      resources:" >> $DOCKER_COMPOSE_FILE
+            # echo "        limits:" >> $DOCKER_COMPOSE_FILE
+            # echo "          cpus: '1.5'" >> $DOCKER_COMPOSE_FILE
+            # echo "          memory: 2g" >> $DOCKER_COMPOSE_FILE
+            echo "    working_dir: /app" >> $DOCKER_COMPOSE_FILE
+            echo "    command: >" >> $DOCKER_COMPOSE_FILE
+            echo "      /bin/sh -c \"" >> $DOCKER_COMPOSE_FILE
+            echo "      dnf -y update &&" >> $DOCKER_COMPOSE_FILE
+            echo "      dnf -y install qt6-qtbase qt6-qtbase-mysql qt6-qtbase-devel gcc g++ make &&" >> $DOCKER_COMPOSE_FILE
+            echo "      dnf clean all &&" >> $DOCKER_COMPOSE_FILE
+            echo "      mkdir -p /app/${service_name}_output &&" >> $DOCKER_COMPOSE_FILE
+            echo "      cd ${service_name}_output &&" >> $DOCKER_COMPOSE_FILE
+            if [ "$state" = "debug" ]; then
+            echo "      /usr/lib64/qt6/bin/qmake ../${build_file} CONFIG+=debug CONFIG+=qml_debug &&" >> $DOCKER_COMPOSE_FILE
+            else
+            echo "      /usr/lib64/qt6/bin/qmake ../${build_file} &&" >> $DOCKER_COMPOSE_FILE    
+            fi
+            echo "      make -j\$(nproc) &&" >> $DOCKER_COMPOSE_FILE
+            echo "      cp ${binary_file} /app/${service_name}_output/artefact &&" >> $DOCKER_COMPOSE_FILE
+            echo "      chmod -R 777 /app/${service_name}_output\"" >> $DOCKER_COMPOSE_FILE
+        fi
+    done
+
+    log "docker-compose.build.yaml generated successfully based on ${CONFIG_FILE} details."
+}
+
+check_jq_installed() {
+    # Check if jq is installed
+    if ! command -v jq &> /dev/null; then
+        log "Error: jq is not installed."
+
+        if [ -f /etc/os-release ]; then
+            . /etc/os-release
+            
+            if [[ "$ID" == "ubuntu" ]]; then
+                log "You are using Ubuntu. Please install jq by running:"
+                log "sudo apt update && sudo apt install -y jq"
+            elif [[ "$ID" == "fedora" ]]; then
+                log "You are using Fedora. Please install jq by running:"
+                log "sudo dnf install -y jq"
+            else
+                log "Unsupported OS. Please install jq manually."
+            fi
+        else
+            log "Unable to detect OS. Please install jq manually."
+        fi
         exit 1
-    else
-        log "Docker Compose version is $compose_version. Proceeding..."
     fi
 }
 
@@ -242,6 +284,8 @@ manage_services() {
     local mode=$1  # build or deploy
     local command=$2
     local compose_file="docker-compose.$mode.yaml"
+    check_jq_installed
+    check_docker_compose_version
 
     case "$mode" in
         build)
@@ -249,8 +293,7 @@ manage_services() {
                 start)
                     [ -f "$LOG_FILE" ] && rm "$LOG_FILE" && log "Removing old logs: $LOG_FILE."
                     log "Starting build process..."
-                    check_and_install_docker
-                    check_docker_compose_version
+                    generate_dc_build
                     clone_repositories
                     run_docker_compose_build "$compose_file"
                     wait_for_containers "$compose_file"
@@ -276,9 +319,8 @@ manage_services() {
             case "$command" in
                 start)
                     log "Starting deploy services with $compose_file."
-                    check_and_install_docker
-                    check_docker_compose_version
-                    docker compose -f "$compose_file" up --build --quiet-pull -d >> "$LOG_FILE" 2>&1
+                    run_docker_compose_build "$compose_file"
+                    # docker compose -f "$compose_file" up --build --quiet-pull -d >> "$LOG_FILE" 2>&1
                     log "Deployed services started successfully with $compose_file."
                     ;;
                 stop)
