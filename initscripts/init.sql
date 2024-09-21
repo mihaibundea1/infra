@@ -22,18 +22,18 @@ CREATE TABLE IF NOT EXISTS exercises (
 
 -- Insert all muscle groups into the exercise_groups table with updated S3 URLs and manual IDs
 INSERT INTO exercise_groups (id, name, image_url) VALUES
-    (1, 'Forearm', 's3://proveit-exercises-directories/muscle_groups/forearm.png'),
-    (2, 'Abs', 's3://proveit-exercises-directories/muscle_groups/abs.png'),
-    (3, 'Lateral Abs', 's3://proveit-exercises-directories/muscle_groups/lateralabs.png'),
-    (4, 'Hamstrings', 's3://proveit-exercises-directories/muscle_groups/hamstrings.png'),
-    (5, 'Biceps', 's3://proveit-exercises-directories/muscle_groups/biceps.png'),
-    (6, 'Buttocks', 's3://proveit-exercises-directories/muscle_groups/buttocks.png'),
-    (7, 'Calves', 's3://proveit-exercises-directories/muscle_groups/calves.png'),
-    (8, 'Neck', 's3://proveit-exercises-directories/muscle_groups/neck.png'),
-    (9, 'Pecs', 's3://proveit-exercises-directories/muscle_groups/pecs.png'),
-    (10, 'Quadriceps', 's3://proveit-exercises-directories/muscle_groups/quad.png'),
-    (11, 'Shoulders', 's3://proveit-exercises-directories/muscle_groups/shoulders.png'),
-    (12, 'Triceps', 's3://proveit-exercises-directories/muscle_groups/triceps.png');
+    (1, 'Pecs', 's3://proveit-exercises-directories/muscle_groups/pecs.png'),
+    (2, 'Biceps', 's3://proveit-exercises-directories/muscle_groups/biceps.png'),
+    (3, 'Triceps', 's3://proveit-exercises-directories/muscle_groups/triceps.png');
+    (4, 'Shoulders', 's3://proveit-exercises-directories/muscle_groups/shoulders.png'),
+    (5, 'Forearm', 's3://proveit-exercises-directories/muscle_groups/forearm.png'),
+    (6, 'Abs', 's3://proveit-exercises-directories/muscle_groups/abs.png'),
+    (7, 'Lateral Abs', 's3://proveit-exercises-directories/muscle_groups/lateralabs.png'),
+    (8, 'Hamstrings', 's3://proveit-exercises-directories/muscle_groups/hamstrings.png'),
+    (9, 'Buttocks', 's3://proveit-exercises-directories/muscle_groups/buttocks.png'),
+    (10, 'Calves', 's3://proveit-exercises-directories/muscle_groups/calves.png'),
+    (11, 'Quadriceps', 's3://proveit-exercises-directories/muscle_groups/quad.png'),
+    (12, 'Neck', 's3://proveit-exercises-directories/muscle_groups/neck.png'),
 
 
 -- Insert exercises with group_id
