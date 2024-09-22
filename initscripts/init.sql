@@ -35,23 +35,46 @@ CREATE TABLE IF NOT EXISTS exercise_primary_muscles (
 
 -- Insert all muscle groups into the exercise_groups table with updated S3 URLs and manual IDs
 INSERT INTO exercise_groups (id, name, image_url) VALUES
-    (1, 'Abdominals', 's3://proveit-exercises-directories/muscle_groups/abdominals.png'),
-    (2, 'Abductors', 's3://proveit-exercises-directories/muscle_groups/abductors.png'),
-    (3, 'Adductors', 's3://proveit-exercises-directories/muscle_groups/adductors.png'),
-    (4, 'Biceps', 's3://proveit-exercises-directories/muscle_groups/biceps.png'),
-    (5, 'Calves', 's3://proveit-exercises-directories/muscle_groups/calves.png'),
-    (6, 'Chest', 's3://proveit-exercises-directories/muscle_groups/chest.png'),
-    (7, 'Forearms', 's3://proveit-exercises-directories/muscle_groups/forearms.png'),
-    (8, 'Glutes', 's3://proveit-exercises-directories/muscle_groups/glutes.png'),
-    (9, 'Hamstrings', 's3://proveit-exercises-directories/muscle_groups/hamstrings.png'),
-    (10, 'Lats', 's3://proveit-exercises-directories/muscle_groups/lats.png'),
-    (11, 'Lower Back', 's3://proveit-exercises-directories/muscle_groups/lower_back.png'),
-    (12, 'Middle Back', 's3://proveit-exercises-directories/muscle_groups/middle_back.png'),
-    (13, 'Neck', 's3://proveit-exercises-directories/muscle_groups/neck.png'),
-    (14, 'Quadriceps', 's3://proveit-exercises-directories/muscle_groups/quadriceps.png'),
-    (15, 'Shoulders', 's3://proveit-exercises-directories/muscle_groups/shoulders.png'),
-    (16, 'Traps', 's3://proveit-exercises-directories/muscle_groups/traps.png'),
-    (17, 'Triceps', 's3://proveit-exercises-directories/muscle_groups/triceps.png');
+    (1, 'abdominals', 's3://proveit-exercises-directories/muscle_groups/abdominals.png'),
+    (2, 'abductors', 's3://proveit-exercises-directories/muscle_groups/abductors.png'),
+    (3, 'adductors', 's3://proveit-exercises-directories/muscle_groups/adductors.png'),
+    (4, 'biceps', 's3://proveit-exercises-directories/muscle_groups/biceps.png'),
+    (5, 'calves', 's3://proveit-exercises-directories/muscle_groups/calves.png'),
+    (6, 'chest', 's3://proveit-exercises-directories/muscle_groups/chest.png'),
+    (7, 'forearms', 's3://proveit-exercises-directories/muscle_groups/forearms.png'),
+    (8, 'glutes', 's3://proveit-exercises-directories/muscle_groups/glutes.png'),
+    (9, 'hamstrings', 's3://proveit-exercises-directories/muscle_groups/hamstrings.png'),
+    (10, 'lats', 's3://proveit-exercises-directories/muscle_groups/lats.png'),
+    (11, 'lower back', 's3://proveit-exercises-directories/muscle_groups/lower_back.png'),
+    (12, 'middle back', 's3://proveit-exercises-directories/muscle_groups/middle_back.png'),
+    (13, 'neck', 's3://proveit-exercises-directories/muscle_groups/neck.png'),
+    (14, 'quadriceps', 's3://proveit-exercises-directories/muscle_groups/quadriceps.png'),
+    (15, 'shoulders', 's3://proveit-exercises-directories/muscle_groups/shoulders.png'),
+    (16, 'traps', 's3://proveit-exercises-directories/muscle_groups/traps.png'),
+    (17, 'triceps', 's3://proveit-exercises-directories/muscle_groups/triceps.png');
+
+
+-- Creează funcția pentru a construi calea imaginii
+DELIMITER //
+CREATE FUNCTION get_image_path(exercise_id VARCHAR(255), image_number INT) 
+RETURNS VARCHAR(255)
+DETERMINISTIC
+BEGIN
+  RETURN CONCAT('/var/lib/mysql-files/exercises/', exercise_id, '/', image_number, '.jpg');
+END //
+DELIMITER ;
+
+-- Creează o funcție pentru a verifica existența fișierului
+DELIMITER //
+CREATE FUNCTION file_exists(file_path VARCHAR(255))
+RETURNS BOOLEAN
+DETERMINISTIC
+BEGIN
+  DECLARE result INT;
+  SET result = (SELECT COUNT(*) FROM information_schema.files WHERE file_name = file_path);
+  RETURN result > 0;
+END //
+DELIMITER ;
 
 -- Import JSON data into exercises table
 SET @json_data = LOAD_FILE('/docker-entrypoint-initdb.d/exercises.json');
@@ -80,7 +103,13 @@ SELECT
     JSON_EXTRACT(exercise, '$.primaryMuscles'),
     JSON_EXTRACT(exercise, '$.secondaryMuscles'),
     JSON_EXTRACT(exercise, '$.instructions'),
-    JSON_EXTRACT(exercise, '$.images')
+    JSON_ARRAY(
+        get_image_path(JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), 0),
+        CASE WHEN file_exists(get_image_path(JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), 1))
+             THEN get_image_path(JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), 1)
+             ELSE NULL
+        END
+    )
 FROM JSON_TABLE(
     @json_data,
     '$[*]' COLUMNS (
@@ -98,6 +127,13 @@ FROM
     CROSS JOIN JSON_TABLE(e.primary_muscles, '$[*]' COLUMNS (muscle_name VARCHAR(100) PATH '$')) as jt
     JOIN exercise_groups eg ON LOWER(jt.muscle_name) = LOWER(eg.name);
 
+-- Curățenie
+DROP FUNCTION IF EXISTS get_image_path;
+DROP FUNCTION IF EXISTS file_exists;
+
 -- Verify data insertion
 SELECT COUNT(*) FROM exercises;
 SELECT COUNT(*) FROM exercise_primary_muscles;
+
+-- Verifică caile imaginilor
+SELECT id, images FROM exercises LIMIT 5;

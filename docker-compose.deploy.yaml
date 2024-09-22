@@ -4,6 +4,7 @@ services:
     volumes:
       - ./data:/var/lib/mysql
       - ./initscripts:/docker-entrypoint-initdb.d
+      - ./exercises:/var/lib/mysql-files/exercises
     container_name: maria-db
     restart: unless-stopped
     tty: true
