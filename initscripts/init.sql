@@ -53,8 +53,7 @@ INSERT INTO exercise_groups (id, name, image_url) VALUES
     (16, 'traps', 's3://proveit-exercises-directories/muscle_groups/traps.png'),
     (17, 'triceps', 's3://proveit-exercises-directories/muscle_groups/triceps.png');
 
-
--- Creează funcția pentru a construi calea imaginii
+-- Create function for images path
 DELIMITER //
 CREATE FUNCTION get_image_path(exercise_id VARCHAR(255), image_number INT) 
 RETURNS VARCHAR(255)
@@ -64,7 +63,7 @@ BEGIN
 END //
 DELIMITER ;
 
--- Creează o funcție pentru a verifica existența fișierului
+-- Checks if the file exists
 DELIMITER //
 CREATE FUNCTION file_exists(file_path VARCHAR(255))
 RETURNS BOOLEAN
@@ -124,16 +123,11 @@ SELECT
     eg.id
 FROM 
     exercises e
-    CROSS JOIN JSON_TABLE(e.primary_muscles, '$[*]' COLUMNS (muscle_name VARCHAR(100) PATH '$')) as jt
-    JOIN exercise_groups eg ON LOWER(jt.muscle_name) = LOWER(eg.name);
+    -- Extragem corect numele muschilor din JSON
+    JOIN JSON_TABLE(e.primary_muscles, '$[*]' COLUMNS (muscle_name VARCHAR(100) PATH '$')) AS jt
+    -- Facem legătura între numele muschilor și grupurile de mușchi din exercise_groups
+    JOIN exercise_groups eg ON LOWER(jt.muscle_name COLLATE utf8mb4_general_ci) = LOWER(eg.name COLLATE utf8mb4_general_ci);
 
--- Curățenie
+-- Clean-up
 DROP FUNCTION IF EXISTS get_image_path;
 DROP FUNCTION IF EXISTS file_exists;
-
--- Verify data insertion
-SELECT COUNT(*) FROM exercises;
-SELECT COUNT(*) FROM exercise_primary_muscles;
-
--- Verifică caile imaginilor
-SELECT id, images FROM exercises LIMIT 5;
