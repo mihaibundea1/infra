@@ -24,34 +24,36 @@ CREATE TABLE IF NOT EXISTS exercises (
     `images` JSON
 );
 
--- Create a new table for the many-to-many relationship
+-- Create a new table for the many-to-many relationship with additional columns
 CREATE TABLE IF NOT EXISTS exercise_primary_muscles (
     exercise_id VARCHAR(255),
     muscle_group_id INT,
+    exercise_name VARCHAR(255),
+    image_path VARCHAR(255),
     PRIMARY KEY (exercise_id, muscle_group_id),
     FOREIGN KEY (exercise_id) REFERENCES exercises(id),
     FOREIGN KEY (muscle_group_id) REFERENCES exercise_groups(id)
 );
 
--- Insert all muscle groups into the exercise_groups table with updated S3 URLs and manual IDs
+-- Insert all muscle groups into the exercise_groups table with placeholder image URLs
 INSERT INTO exercise_groups (id, name, image_url) VALUES
-    (1, 'abdominals', 's3://proveit-exercises-directories/muscle_groups/abdominals.png'),
-    (2, 'abductors', 's3://proveit-exercises-directories/muscle_groups/abductors.png'),
-    (3, 'adductors', 's3://proveit-exercises-directories/muscle_groups/adductors.png'),
-    (4, 'biceps', 's3://proveit-exercises-directories/muscle_groups/biceps.png'),
-    (5, 'calves', 's3://proveit-exercises-directories/muscle_groups/calves.png'),
-    (6, 'chest', 's3://proveit-exercises-directories/muscle_groups/chest.png'),
-    (7, 'forearms', 's3://proveit-exercises-directories/muscle_groups/forearms.png'),
-    (8, 'glutes', 's3://proveit-exercises-directories/muscle_groups/glutes.png'),
-    (9, 'hamstrings', 's3://proveit-exercises-directories/muscle_groups/hamstrings.png'),
-    (10, 'lats', 's3://proveit-exercises-directories/muscle_groups/lats.png'),
-    (11, 'lower back', 's3://proveit-exercises-directories/muscle_groups/lower_back.png'),
-    (12, 'middle back', 's3://proveit-exercises-directories/muscle_groups/middle_back.png'),
-    (13, 'neck', 's3://proveit-exercises-directories/muscle_groups/neck.png'),
-    (14, 'quadriceps', 's3://proveit-exercises-directories/muscle_groups/quadriceps.png'),
-    (15, 'shoulders', 's3://proveit-exercises-directories/muscle_groups/shoulders.png'),
-    (16, 'traps', 's3://proveit-exercises-directories/muscle_groups/traps.png'),
-    (17, 'triceps', 's3://proveit-exercises-directories/muscle_groups/triceps.png');
+    (1, 'abdominals', ''),
+    (2, 'abductors', ''),
+    (3, 'adductors', ''),
+    (4, 'biceps', ''),
+    (5, 'calves', ''),
+    (6, 'chest', ''),
+    (7, 'forearms', ''),
+    (8, 'glutes', ''),
+    (9, 'hamstrings', ''),
+    (10, 'lats', ''),
+    (11, 'lower back', ''),
+    (12, 'middle back', ''),
+    (13, 'neck', ''),
+    (14, 'quadriceps', ''),
+    (15, 'shoulders', ''),
+    (16, 'traps', ''),
+    (17, 'triceps', '');
 
 -- Create function for images path
 DELIMITER //
@@ -104,10 +106,7 @@ SELECT
     JSON_EXTRACT(exercise, '$.instructions'),
     JSON_ARRAY(
         get_image_path(JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), 0),
-        CASE WHEN file_exists(get_image_path(JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), 1))
-             THEN get_image_path(JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), 1)
-             ELSE NULL
-        END
+        get_image_path(JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), 1)
     )
 FROM JSON_TABLE(
     @json_data,
@@ -116,17 +115,28 @@ FROM JSON_TABLE(
     )
 ) AS exercises_json;
 
--- Create and populate the exercise_primary_muscles table
-INSERT INTO exercise_primary_muscles (exercise_id, muscle_group_id)
+-- Create and populate the exercise_primary_muscles table with additional information
+INSERT INTO exercise_primary_muscles (exercise_id, muscle_group_id, exercise_name, image_path)
 SELECT 
     e.id,
-    eg.id
+    eg.id,
+    e.name,
+    JSON_UNQUOTE(JSON_EXTRACT(e.images, '$[0]'))  -- Extract path for the first image (0.jpg)
 FROM 
     exercises e
-    -- Extragem corect numele muschilor din JSON
+    -- Correctly extract muscle names from JSON
     JOIN JSON_TABLE(e.primary_muscles, '$[*]' COLUMNS (muscle_name VARCHAR(100) PATH '$')) AS jt
-    -- Facem legătura între numele muschilor și grupurile de mușchi din exercise_groups
+    -- Link muscle names to muscle groups from exercise_groups
     JOIN exercise_groups eg ON LOWER(jt.muscle_name COLLATE utf8mb4_general_ci) = LOWER(eg.name COLLATE utf8mb4_general_ci);
+
+-- Update exercise_groups with the first image found for each group in exercise_primary_muscles
+UPDATE exercise_groups eg
+JOIN (
+    SELECT muscle_group_id, MIN(image_path) AS first_image
+    FROM exercise_primary_muscles
+    GROUP BY muscle_group_id
+) AS first_images ON eg.id = first_images.muscle_group_id
+SET eg.image_url = first_images.first_image;
 
 -- Clean-up
 DROP FUNCTION IF EXISTS get_image_path;
