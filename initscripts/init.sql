@@ -37,43 +37,31 @@ CREATE TABLE IF NOT EXISTS exercise_primary_muscles (
 
 -- Insert all muscle groups into the exercise_groups table with placeholder image URLs
 INSERT INTO exercise_groups (id, name, image_url) VALUES
-    (1, 'abdominals', ''),
-    (2, 'abductors', ''),
-    (3, 'adductors', ''),
+    (1, 'chest', ''),
+    (2, 'shoulders', ''),
+    (3, 'triceps', ''),
     (4, 'biceps', ''),
-    (5, 'calves', ''),
-    (6, 'chest', ''),
-    (7, 'forearms', ''),
-    (8, 'glutes', ''),
-    (9, 'hamstrings', ''),
-    (10, 'lats', ''),
-    (11, 'lower back', ''),
-    (12, 'middle back', ''),
-    (13, 'neck', ''),
-    (14, 'quadriceps', ''),
-    (15, 'shoulders', ''),
-    (16, 'traps', ''),
-    (17, 'triceps', '');
+    (5, 'forearms', ''),
+    (6, 'lats', ''),
+    (7, 'middle back', ''),
+    (8, 'lower back', ''),
+    (9, 'abdominals', ''),
+    (10, 'quadriceps', ''),
+    (11, 'hamstrings', ''),
+    (12, 'glutes', ''),
+    (13, 'calves', ''),
+    (14, 'traps', ''),
+    (15, 'neck', ''),
+    (16, 'adductors', ''),
+    (17, 'abductors', '');
 
--- Create function for images path
+-- Create function for images path (modified for S3)
 DELIMITER //
 CREATE FUNCTION get_image_path(exercise_id VARCHAR(255), image_number INT) 
 RETURNS VARCHAR(255)
 DETERMINISTIC
 BEGIN
-  RETURN CONCAT('/var/lib/mysql-files/exercises/', exercise_id, '/', image_number, '.jpg');
-END //
-DELIMITER ;
-
--- Checks if the file exists
-DELIMITER //
-CREATE FUNCTION file_exists(file_path VARCHAR(255))
-RETURNS BOOLEAN
-DETERMINISTIC
-BEGIN
-  DECLARE result INT;
-  SET result = (SELECT COUNT(*) FROM information_schema.files WHERE file_name = file_path);
-  RETURN result > 0;
+  RETURN CONCAT('s3://proveit-exercises-directories/exercises/', exercise_id, '/', image_number, '.jpg');
 END //
 DELIMITER ;
 
@@ -124,9 +112,7 @@ SELECT
     JSON_UNQUOTE(JSON_EXTRACT(e.images, '$[0]'))  -- Extract path for the first image (0.jpg)
 FROM 
     exercises e
-    -- Correctly extract muscle names from JSON
     JOIN JSON_TABLE(e.primary_muscles, '$[*]' COLUMNS (muscle_name VARCHAR(100) PATH '$')) AS jt
-    -- Link muscle names to muscle groups from exercise_groups
     JOIN exercise_groups eg ON LOWER(jt.muscle_name COLLATE utf8mb4_general_ci) = LOWER(eg.name COLLATE utf8mb4_general_ci);
 
 -- Update exercise_groups with the first image found for each group in exercise_primary_muscles
@@ -140,4 +126,3 @@ SET eg.image_url = first_images.first_image;
 
 -- Clean-up
 DROP FUNCTION IF EXISTS get_image_path;
-DROP FUNCTION IF EXISTS file_exists;
