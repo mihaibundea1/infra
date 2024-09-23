@@ -4,6 +4,7 @@ services:
     volumes:
       - ./data:/var/lib/mysql
       - ./initscripts:/docker-entrypoint-initdb.d
+      - ./initscripts/exercises:/var/lib/mysql-files/exercises
     container_name: maria-db
     restart: unless-stopped
     tty: true
@@ -28,4 +29,3 @@ networks:
       config:
         - subnet: 10.10.0.0/16
           gateway: 10.10.0.1
-
