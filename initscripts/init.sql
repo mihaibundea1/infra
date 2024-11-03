@@ -6,7 +6,7 @@ USE Exercises;
 CREATE TABLE IF NOT EXISTS exercise_groups (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    image_url VARCHAR(255),  -- Url to the image
+    image_url VARCHAR(255)  -- Url to the image
 );
 
 -- Create the exercises table
