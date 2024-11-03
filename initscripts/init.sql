@@ -2,15 +2,14 @@
 CREATE DATABASE IF NOT EXISTS Exercises;
 USE Exercises;
 
--- Create the exercise_groups table (image path and image as BLOB)
+-- Create the exercise_groups table
 CREATE TABLE IF NOT EXISTS exercise_groups (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    image_path VARCHAR(255),  -- Path to the image
-    image MEDIUMBLOB          -- BLOB column to store image data
+    image_url VARCHAR(255),  -- Url to the image
 );
 
--- Create the exercises table (with image paths and BLOBs)
+-- Create the exercises table
 CREATE TABLE IF NOT EXISTS exercises (
     `id` VARCHAR(255) PRIMARY KEY,
     `name` VARCHAR(255) NOT NULL,
@@ -22,19 +21,15 @@ CREATE TABLE IF NOT EXISTS exercises (
     `primary_muscles` JSON,
     `secondary_muscles` JSON,
     `instructions` JSON,
-    `image1_path` VARCHAR(255),  -- Path for first image
-    `image1` MEDIUMBLOB,         -- First image stored as BLOB
-    `image2_path` VARCHAR(255),  -- Path for second image
-    `image2` MEDIUMBLOB          -- Second image stored as BLOB
+	`images` JSON
 );
 
--- Create a table for the many-to-many relationship between exercises and muscles (with image path and BLOB)
+-- Create a table for the many-to-many relationship between exercises and muscles
 CREATE TABLE IF NOT EXISTS exercise_primary_muscles (
     exercise_id VARCHAR(255),
     muscle_group_id INT,
     exercise_name VARCHAR(255),
     image_path VARCHAR(255),  -- Path to the first image (0.jpg)
-    image MEDIUMBLOB,         -- BLOB column to store image data
     PRIMARY KEY (exercise_id, muscle_group_id),
     FOREIGN KEY (exercise_id) REFERENCES exercises(id),
     FOREIGN KEY (muscle_group_id) REFERENCES exercise_groups(id)
@@ -59,6 +54,18 @@ INSERT INTO exercise_groups (id, name) VALUES
     (15, 'neck'),
     (16, 'adductors'),
     (17, 'abductors');
+	
+-- Create function for images path (modified for S3)
+
+DELIMITER //
+
+CREATE FUNCTION get_image_path(exercise_id VARCHAR(255), image_number INT) 
+RETURNS VARCHAR(255)
+DETERMINISTIC
+BEGIN
+  RETURN CONCAT('s3://proveit-exercises-directories/exercises/', exercise_id, '/', image_number, '.jpg');
+END //
+DELIMITER ;
 
 -- Load JSON data from the file
 SET @json_data = LOAD_FILE('/docker-entrypoint-initdb.d/exercises.json');
@@ -75,10 +82,7 @@ INSERT INTO exercises (
     `primary_muscles`,
     `secondary_muscles`,
     `instructions`,
-    `image1_path`,
-    `image1`,
-    `image2_path`,
-    `image2`
+    `images`
 )
 SELECT 
     JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')),
@@ -91,10 +95,10 @@ SELECT
     JSON_EXTRACT(exercise, '$.primaryMuscles'),
     JSON_EXTRACT(exercise, '$.secondaryMuscles'),
     JSON_EXTRACT(exercise, '$.instructions'),
-    CONCAT('/docker-entrypoint-initdb.d/exercises/', JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), '/0.jpg'),  -- Path for first image
-    LOAD_FILE(CONCAT('/docker-entrypoint-initdb.d/exercises/', JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), '/0.jpg')),  -- Load first image as BLOB
-    CONCAT('/docker-entrypoint-initdb.d/exercises/', JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), '/1.jpg'),  -- Path for second image
-    LOAD_FILE(CONCAT('/docker-entrypoint-initdb.d/exercises/', JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), '/1.jpg'))   -- Load second image as BLOB
+    JSON_ARRAY(
+        get_image_path(JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), 0),
+        get_image_path(JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), 1)
+    )
 FROM JSON_TABLE(
     @json_data,
     '$[*]' COLUMNS (
@@ -103,12 +107,12 @@ FROM JSON_TABLE(
 ) AS exercises_json;
 
 -- Create and populate the exercise_primary_muscles table with additional information
-INSERT INTO exercise_primary_muscles (exercise_id, muscle_group_id, exercise_name, image_path, image)
+INSERT INTO exercise_primary_muscles (exercise_id, muscle_group_id, exercise_name, image_path)
 SELECT 
     e.id,
     eg.id,
     e.name,
-    CONCAT('/docker-entrypoint-initdb.d/exercises/', e.id, '/0.jpg'),  -- Path for the first image (0.jpg)
+    JSON_UNQUOTE(JSON_EXTRACT(e.images, '$[0]'))  -- Extract path for the first image (0.jpg)
     e.image1  -- Use the first image (0.jpg) as the associated BLOB for the muscle group
 FROM 
     exercises e
@@ -118,9 +122,9 @@ FROM
 -- Update exercise_groups with the first image found for each group in exercise_primary_muscles
 UPDATE exercise_groups eg
 JOIN (
-    SELECT muscle_group_id, MIN(image_path) AS first_image_path, MIN(image) AS first_image
+	SELECT muscle_group_id, MIN(image_path) AS first_image
     FROM exercise_primary_muscles
     GROUP BY muscle_group_id
 ) AS first_images ON eg.id = first_images.muscle_group_id
-SET eg.image_path = first_images.first_image_path, 
+SET eg.image_url = first_images.first_image_path, 
     eg.image = first_images.first_image;
