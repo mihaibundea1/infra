@@ -6,10 +6,10 @@ USE Exercises;
 CREATE TABLE IF NOT EXISTS exercise_groups (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    image_url VARCHAR(255)  -- Url to the image
+    image_url VARCHAR(255)
 );
 
--- Create the exercises table
+-- Create the exercises table with backticks around column names
 CREATE TABLE IF NOT EXISTS exercises (
     `id` VARCHAR(255) PRIMARY KEY,
     `name` VARCHAR(255) NOT NULL,
@@ -21,44 +21,42 @@ CREATE TABLE IF NOT EXISTS exercises (
     `primary_muscles` JSON,
     `secondary_muscles` JSON,
     `instructions` JSON,
-	`images` JSON
+    `images` JSON
 );
 
--- Create a table for the many-to-many relationship between exercises and muscles
+-- Create a new table for the many-to-many relationship with additional columns
 CREATE TABLE IF NOT EXISTS exercise_primary_muscles (
     exercise_id VARCHAR(255),
     muscle_group_id INT,
     exercise_name VARCHAR(255),
-    image_path VARCHAR(255),  -- Path to the first image (0.jpg)
+    image_path VARCHAR(255),
     PRIMARY KEY (exercise_id, muscle_group_id),
     FOREIGN KEY (exercise_id) REFERENCES exercises(id),
     FOREIGN KEY (muscle_group_id) REFERENCES exercise_groups(id)
 );
 
--- Insert muscle groups into the exercise_groups table
-INSERT INTO exercise_groups (id, name) VALUES
-    (1, 'chest'),
-    (2, 'shoulders'),
-    (3, 'triceps'),
-    (4, 'biceps'),
-    (5, 'forearms'),
-    (6, 'lats'),
-    (7, 'middle back'),
-    (8, 'lower back'),
-    (9, 'abdominals'),
-    (10, 'quadriceps'),
-    (11, 'hamstrings'),
-    (12, 'glutes'),
-    (13, 'calves'),
-    (14, 'traps'),
-    (15, 'neck'),
-    (16, 'adductors'),
-    (17, 'abductors');
-	
+-- Insert all muscle groups into the exercise_groups table with placeholder image URLs
+INSERT INTO exercise_groups (id, name, image_url) VALUES
+    (1, 'chest', ''),
+    (2, 'shoulders', ''),
+    (3, 'triceps', ''),
+    (4, 'biceps', ''),
+    (5, 'forearms', ''),
+    (6, 'lats', ''),
+    (7, 'middle back', ''),
+    (8, 'lower back', ''),
+    (9, 'abdominals', ''),
+    (10, 'quadriceps', ''),
+    (11, 'hamstrings', ''),
+    (12, 'glutes', ''),
+    (13, 'calves', ''),
+    (14, 'traps', ''),
+    (15, 'neck', ''),
+    (16, 'adductors', ''),
+    (17, 'abductors', '');
+
 -- Create function for images path (modified for S3)
-
 DELIMITER //
-
 CREATE FUNCTION get_image_path(exercise_id VARCHAR(255), image_number INT) 
 RETURNS VARCHAR(255)
 DETERMINISTIC
@@ -67,10 +65,9 @@ BEGIN
 END //
 DELIMITER ;
 
--- Load JSON data from the file
+-- Import JSON data into exercises table
 SET @json_data = LOAD_FILE('/docker-entrypoint-initdb.d/exercises.json');
 
--- Insert exercises from JSON into the exercises table with paths and images as BLOBs
 INSERT INTO exercises (
     `id`,
     `name`,
@@ -113,7 +110,6 @@ SELECT
     eg.id,
     e.name,
     JSON_UNQUOTE(JSON_EXTRACT(e.images, '$[0]'))  -- Extract path for the first image (0.jpg)
-    e.image1  -- Use the first image (0.jpg) as the associated BLOB for the muscle group
 FROM 
     exercises e
     JOIN JSON_TABLE(e.primary_muscles, '$[*]' COLUMNS (muscle_name VARCHAR(100) PATH '$')) AS jt
@@ -122,9 +118,11 @@ FROM
 -- Update exercise_groups with the first image found for each group in exercise_primary_muscles
 UPDATE exercise_groups eg
 JOIN (
-	SELECT muscle_group_id, MIN(image_path) AS first_image
+    SELECT muscle_group_id, MIN(image_path) AS first_image
     FROM exercise_primary_muscles
     GROUP BY muscle_group_id
 ) AS first_images ON eg.id = first_images.muscle_group_id
-SET eg.image_url = first_images.first_image_path, 
-    eg.image = first_images.first_image;
+SET eg.image_url = first_images.first_image;
+
+-- Clean-up
+DROP FUNCTION IF EXISTS get_image_path;
