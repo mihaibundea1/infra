@@ -5,7 +5,6 @@ services:
       - ./data:/var/lib/mysql
       - ./initscripts:/docker-entrypoint-initdb.d
       - ./initscripts/exercises:/var/lib/mysql-files/exercises
-      - ./logs/mariadb:/var/log/mysql
     container_name: maria-db
     restart: unless-stopped
     tty: true
@@ -32,13 +31,14 @@ services:
       - ./logs/redis:/var/log/redis
     container_name: redis-cache
     restart: unless-stopped
+    command: redis-server --requirepass redis1234
     ports:
-      - 6379:6379
+      - "6379:6379"
     networks:
       provedb:
         ipv4_address: 10.10.0.3
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "redis1234", "ping"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -52,6 +52,9 @@ services:
       - ./logs/rabbitmq:/var/log/rabbitmq
     container_name: rabbitmq-service
     restart: unless-stopped
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
     ports:
       - 5672:5672   # AMQP protocol
       - 15672:15672 # Management interface
