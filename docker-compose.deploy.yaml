@@ -22,6 +22,51 @@ services:
       provedb:
         ipv4_address: 10.10.0.2
 
+  redis:
+    build:
+      context: .
+      dockerfile: dockerfiles/redis.dockerfile
+    volumes:
+      - ./redis/data:/data
+      - ./logs/redis:/var/log/redis
+    container_name: redis-cache
+    restart: unless-stopped
+    command: redis-server --requirepass redis1234
+    ports:
+      - "6379:6379"
+    networks:
+      provedb:
+        ipv4_address: 10.10.0.3
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis1234", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    build:
+      context: .
+      dockerfile: dockerfiles/rabbitmq.dockerfile
+    volumes:
+      - ./rabbitmq/data:/var/lib/rabbitmq
+      - ./logs/rabbitmq:/var/log/rabbitmq
+    container_name: rabbitmq-service
+    restart: unless-stopped
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    ports:
+      - 5672:5672   # AMQP protocol
+      - 15672:15672 # Management interface
+    networks:
+      provedb:
+        ipv4_address: 10.10.0.4
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 networks:
   provedb:
     driver: bridge
