@@ -66,6 +66,37 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+image_processing-app:
+    build:
+      context: .
+      dockerfile: dockerfiles/image_processing.dockerfile
+    volumes:
+      - ./local_sources/image_processing-app:/app
+      - ./built_services/image_processing-app:/app/dist
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_TTL=${REDIS_TTL}
+      - REDIS_DB=${REDIS_DB}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST}
+      - RABBITMQ_QUEUE=${RABBITMQ_QUEUE}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      - AWS_BUCKET_NAME=${AWS_BUCKET_NAME}
+    networks:
+      provedb:
+        ipv4_address: 10.10.0.5
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
 networks:
   provedb:

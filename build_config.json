@@ -1,0 +1,13 @@
+{
+  "services": [
+    {
+      "name": "ImageProcessingPython",
+      "repo_name": "https://github.com/mihaibundea1/ImageProcessingPython/",
+      "branch": "main",
+      "availability": true,
+      "state": "debug",
+      "build_file": "requirements.txt",
+      "binary_file": "main.py"
+    }
+  ]
+}
