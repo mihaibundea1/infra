@@ -1,0 +1,20 @@
+# Redis Configuration
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=redis1234
+REDIS_TTL=604800
+REDIS_DB=0
+
+# RabbitMQ Configuration
+RABBITMQ_HOST=rabbitmq
+RABBITMQ_PORT=5672
+RABBITMQ_USER=guest
+RABBITMQ_PASSWORD=guest
+RABBITMQ_VHOST=/
+RABBITMQ_QUEUE=image_processing_queue
+
+# AWS Configuration
+AWS_ACCESS_KEY_ID=your_aws_access_key_id
+AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+AWS_DEFAULT_REGION=your_aws_region
+AWS_BUCKET_NAME=your_bucket_name

@@ -1,19 +1,18 @@
-# Example
 services:
-  # build-dms-jackpot:
-    # image: fedora:40
-    # volumes:
-      # - ./local_sources/dms-jackpot:/app
-      # - ./built_services/dms-jackpot:/app/output/artefact
-    # working_dir: /app
-    # command: >
-      # /bin/sh -c "
-      # dnf -y update &&
-      # dnf -y install qt6-qtbase qt6-qtbase-mysql qt6-qtbase-devel gcc g++ make &&
-      # dnf clean all &&
-      # mkdir -p /app/output && 
-      # cd output &&
-      # /usr/lib64/qt6/bin/qmake ../dms-jackpot.pro && 
-      # make -j$(nproc) &&
-      # cp DMS-Jackpot /app/output/artefact &&
-      # chmod -R 777 /app/output"
+  ImageProcessingPython:
+    image: fedora:40
+    volumes:
+      - ./local_sources/ImageProcessingPython:/app
+      - ./built_services/ImageProcessingPython:/app/ImageProcessingPython_output/artefact
+    working_dir: /app
+    command: >
+      /bin/sh -c "
+      dnf -y update &&
+      dnf -y install qt6-qtbase qt6-qtbase-mysql qt6-qtbase-devel gcc g++ make &&
+      dnf clean all &&
+      mkdir -p /app/ImageProcessingPython_output &&
+      cd ImageProcessingPython_output &&
+      /usr/lib64/qt6/bin/qmake ../requirements.txt CONFIG+=debug CONFIG+=qml_debug &&
+      make -j$(nproc) &&
+      cp main.py /app/ImageProcessingPython_output/artefact &&
+      chmod -R 777 /app/ImageProcessingPython_output"
