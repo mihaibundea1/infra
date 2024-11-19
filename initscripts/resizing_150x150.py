@@ -26,32 +26,39 @@ class ImageProcessor:
         self.logger = logging.getLogger(__name__)
 
     def smart_resize_with_padding(self, img, target_size):
-        """Resize image maintaining aspect ratio and add white padding if necessary."""
+        """Resize image maintaining aspect ratio and add padding matching the original background color."""
         original_width, original_height = img.size
         aspect_ratio = original_width / original_height
         target_width, target_height = target_size
         
         # Calculate new dimensions maintaining aspect ratio
         if aspect_ratio > 1:
-            # Width is larger
             new_width = target_width
             new_height = int(target_width / aspect_ratio)
         else:
-            # Height is larger
             new_height = target_height
             new_width = int(target_height * aspect_ratio)
             
         # Resize the image
         img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
         
-        # Create new white background
-        background = Image.new('RGB', target_size, 'white')
+        # Determine background color from corners of original image
+        corners = [
+            img.getpixel((0, 0)),
+            img.getpixel((0, img.height-1)),
+            img.getpixel((img.width-1, 0)),
+            img.getpixel((img.width-1, img.height-1))
+        ]
+        bg_color = max(set(corners), key=corners.count)  # Most common corner color
+        
+        # Create new background with matched color
+        background = Image.new(img.mode, target_size, bg_color)
         
         # Calculate position to paste resized image
         paste_x = (target_width - new_width) // 2
         paste_y = (target_height - new_height) // 2
         
-        # Paste resized image onto white background
+        # Paste resized image onto background
         background.paste(img, (paste_x, paste_y))
         
         return background
@@ -61,23 +68,35 @@ class ImageProcessor:
             self.logger.info(f"Processing image: {image_path}")
             
             with Image.open(image_path) as img:
-                if img.mode in ('RGBA', 'P'):
-                    img = img.convert('RGB')
+                # Keep original mode (RGB, RGBA, etc.)
+                original_mode = img.mode
+                original_format = img.format or 'JPEG'  # Default to JPEG if format is None
                 
-                processed_img = self.smart_resize_with_padding(img, (150, 150))
+                processed_img = self.smart_resize_with_padding(img, (128, 128))
                 
                 exercise_output_dir = self.output_dir / exercise_name
                 exercise_output_dir.mkdir(parents=True, exist_ok=True)
                 
-                output_path = exercise_output_dir / f"{image_path.stem}.webp"
-                processed_img.save(
-                    output_path,
-                    'WEBP',
-                    quality=80,
-                    method=6,
-                    lossless=False,
-                    exact=True
-                )
+                # Keep original file extension
+                output_path = exercise_output_dir / f"{image_path.stem}{image_path.suffix}"
+                
+                # Save with original format and mode
+                save_params = {
+                    'format': original_format,
+                    'quality': 95  # High quality for all formats that support it
+                }
+                
+                if original_format == 'PNG':
+                    save_params['optimize'] = True
+                elif original_format == 'JPEG':
+                    save_params['optimize'] = True
+                    save_params['progressive'] = True
+                elif original_format == 'WEBP':
+                    save_params['method'] = 6
+                    save_params['lossless'] = False
+                    save_params['exact'] = True
+                
+                processed_img.save(output_path, **save_params)
                 
                 self.logger.info(f"Successfully processed: {output_path}")
                 return True, image_path.name
@@ -95,9 +114,8 @@ class ImageProcessor:
         
         for exercise_dir in exercise_dirs:
             exercise_name = exercise_dir.name
-            for img_num in ['0.jpg', '1.jpg']:
-                img_path = exercise_dir / img_num
-                if img_path.exists():
+            for img_path in exercise_dir.glob('*.*'):
+                if img_path.suffix.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
                     image_files.append((img_path, exercise_name))
         
         return image_files
@@ -135,7 +153,7 @@ class ImageProcessor:
 def main():
     script_dir = Path(__file__).parent
     input_dir = script_dir / "exercises"
-    output_dir = script_dir / "processed_exercises_150x150"
+    output_dir = script_dir / "processed_exercises_128x128"
     
     print(f"Input directory: {input_dir}")
     print(f"Output directory: {output_dir}")

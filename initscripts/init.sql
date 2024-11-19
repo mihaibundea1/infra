@@ -100,8 +100,8 @@ SELECT
         get_image_path(JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), 0),
         get_image_path(JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), 1)
     ),
-    LOAD_FILE(CONCAT('/docker-entrypoint-initdb.d/processed_exercises_150x150/', 
-              JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), '/0.webp'))
+    LOAD_FILE(CONCAT('/docker-entrypoint-initdb.d/processed_exercises_128x128/', 
+              JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), '/0.jpg'))
 FROM JSON_TABLE(
     @json_data,
     '$[*]' COLUMNS (

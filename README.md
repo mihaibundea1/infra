@@ -1,90 +1,3 @@
-# Using Docker Compose in Windows PowerShell
-
-# Quick Commands
-
-Here are some useful commands for managing your Docker MariaDB setup:
-
-1. **Start the MariaDB container**:
-   ```
-   docker-compose -f docker-compose.deploy.yaml up -d
-   ```
-   This command starts the MariaDB container in detached mode.
-
-2. **Connect to the MariaDB database**:
-   ```
-   docker exec -it maria-db mariadb -uroot -ppass1234
-   ```
-   This command opens a MariaDB shell inside the container.
-
-3. **Remove the data directory** (Use with caution! This will delete all your data):
-   ```
-   rm -r .\data\
-   ```
-   On Windows PowerShell, use:
-   ```
-   Remove-Item -Recurse -Force .\data\
-   ```
-   This command removes the data directory, effectively resetting your database.
-
-4. **Stop and remove the MariaDB container**:
-   ```
-   docker-compose -f docker-compose.deploy.yaml down
-   ```
-   This command stops and removes the container, networks, and volumes defined in the docker-compose file.
-
-**Note**: Be very careful when using commands that delete data or remove containers. Always ensure you have backups of important data before performing these operations.
-
-## Correct Usage
-
-1. **Open PowerShell**: Ensure you're in the directory containing your Docker Compose file.
-
-2. **Check Docker Compose Installation**: First, verify that Docker Compose is installed:
-   ```powershell
-   docker-compose --version
-   ```
-
-3. **Run Docker Compose**: Use the following command to start your services:
-   ```powershell
-   docker-compose -f docker-compose.deploy.yaml up -d
-   ```
-   - `-f` specifies the file to use (if it's not named `docker-compose.yml`)
-   - `up` creates and starts the containers
-   - `-d` runs in detached mode (in the background)
-
-4. **Check Running Containers**: To see if your containers are running:
-   ```powershell
-   docker ps
-   ```
-
-5. **Stop and Remove Containers**: When you're done, you can stop and remove the containers:
-   ```powershell
-   docker-compose -f docker-compose.deploy.yaml down
-   ```
-   
-   ##Connect to the database
-   ```powershell
-   docker exec -it maria-db mariadb -uroot -ppass1234
-   ```
-   
-   ##Connect locally to the database	
-	```powershell
-	mysql -h 127.0.0.1 -P 3308 -u root -ppass1234
-	```
-
-## Troubleshooting
-
-- **Docker Desktop Running**: Ensure Docker Desktop is running on your Windows machine.
-- **File Path**: Make sure you're in the correct directory. Use `Get-Location` to check your current directory.
-- **File Permissions**: Ensure you have read permissions for the Docker Compose file.
-- **Admin Rights**: The message about "running as Admin in user setup" suggests you might be running PowerShell as an administrator. While this isn't necessarily a problem, it's generally not required for Docker operations unless you're doing something that specifically needs elevated privileges.
-
-## Notes
-
-- The error "code: 0, signal: unknown" typically appears when trying to execute a non-executable file. It's not related to Docker Compose itself.
-- If you're new to Docker Compose, remember that it's a tool for defining and running multi-container Docker applications. The YAML file defines the services, networks, and volumes for your application.
-
-If you continue to have issues, please provide more details about what you're trying to achieve with your Docker Compose setup, and I'll be happy to assist further.
-
 # Docker MariaDB Setup
 
 This README provides instructions for setting up a MariaDB database using Docker on Windows, including the necessary steps to install Docker, run the Dockerfile, and interact with the database.
@@ -94,7 +7,8 @@ This README provides instructions for setting up a MariaDB database using Docker
 2. [Running the Dockerfile](#running-the-dockerfile)
 3. [Connecting to the Database](#connecting-to-the-database)
 4. [Creating and Populating the Exercises Table](#creating-and-populating-the-exercises-table)
-5. [Troubleshooting](#troubleshooting)
+5. [Redis Commands](#redis-commands)
+6. [Troubleshooting](#troubleshooting)
 
 ## Installing Docker on Windows
 
@@ -184,6 +98,28 @@ This README provides instructions for setting up a MariaDB database using Docker
    - Port: `3308`
    - Username: `root`
    - Password: `pass1234`
+
+3. **Connect locally to the database**:
+   ```powershell
+   mysql -h 127.0.0.1 -P 3308 -u root -ppass1234
+   ```
+
+## Redis Commands
+
+1. **Connect to Redis CLI**:
+   ```
+   docker exec -it redis-cache redis-cli -a "redis1234"
+   ```
+
+2. **Get all exercises**:
+   ```
+   GET "exercises:all"
+   ```
+
+3. **Delete all exercises**:
+   ```
+   DEL "exercises:all"
+   ```
 
 ## Creating and Populating the Exercises Table
 
