@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS exercise_groups (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     image_url VARCHAR(255),
-    thumbnail MEDIUMBLOB    -- Added thumbnail column
+    thumbnail BLOB    -- Added thumbnail column
 );
 
 -- Create the exercises table with thumbnails
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS exercises (
     `secondary_muscles` JSON,
     `instructions` JSON,
     `images` JSON,
-    `thumbnail` MEDIUMBLOB  -- Added thumbnail column
+    `thumbnail` BLOB  -- Added thumbnail column
 );
 
 -- Create the many-to-many relationship table with thumbnail
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS exercise_primary_muscles (
     muscle_group_id INT,
     exercise_name VARCHAR(255),
     image_path VARCHAR(255),
-    thumbnail MEDIUMBLOB,    -- Added thumbnail column
+    thumbnail BLOB,    -- Added thumbnail column
     PRIMARY KEY (exercise_id, muscle_group_id),
     FOREIGN KEY (exercise_id) REFERENCES exercises(id),
     FOREIGN KEY (muscle_group_id) REFERENCES exercise_groups(id)
@@ -100,7 +100,7 @@ SELECT
         get_image_path(JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), 0),
         get_image_path(JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), 1)
     ),
-    LOAD_FILE(CONCAT('/docker-entrypoint-initdb.d/processed_exercises_128x128/', 
+    LOAD_FILE(CONCAT('/docker-entrypoint-initdb.d/processed_exercises/', 
               JSON_UNQUOTE(JSON_EXTRACT(exercise, '$.id')), '/0.jpg'))
 FROM JSON_TABLE(
     @json_data,
